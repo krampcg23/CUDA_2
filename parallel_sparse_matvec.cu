@@ -5,16 +5,17 @@
 #include <stdio.h>
 using namespace std;
 
-__global__ void naiveSpMV(float* t, float* b, float* ptr, float* data, float* ind) {
+__global__ void naiveSpMV(float* t, float* b, int* ptr, float* data, int* ind, int n) {
 
     int tid = threadIdx.y;
     int bid = blockIdx.y;
-    int myi = bid * 32 + tid;
+    int myi = bid * 16 + tid;
 
     if (myi < n) {
         float temp = 0;
         int lb = ptr[myi];
         int ub = ptr[myi+1];
+        //printf("%d, %d, \n", lb, ub);
         for (int j = lb; j < ub; j++) {
             int index = ind[j];
             temp += data[j] * b[index];
@@ -76,13 +77,7 @@ main (int argc, char **argv) {
     b[i] = (float) rand()/1111111111;
   }
 
-  // MAIN COMPUTATION, SEQUENTIAL VERSION
-  for (i=0; i<nr; i++) {                                                      
-    for (j = ptr[i]; j<ptr[i+1]; j++) {
-      t[i] = t[i] + data[j] * b[indices[j]];
-    }
-  }
-  
+    
   // TODO: Compute result on GPU and compare output
   float* deviceT;
   cudaMalloc(&deviceT, nr * sizeof(float));
@@ -92,32 +87,41 @@ main (int argc, char **argv) {
   cudaMalloc(&deviceB, nc * sizeof(float));
   cudaMemcpy(deviceB, b, nc * sizeof(float), cudaMemcpyHostToDevice);
 
-  float* devicePtr;
-  cudaMalloc(&devicePtr, (nr+1) * sizeof(float));
-  cudaMemcpy(devicePtr, ptr, (nr+1) * sizeof(float), cudaMemcpyHostToDevice);
+  int* devicePtr;
+  cudaMalloc(&devicePtr, (nr+1) * sizeof(int));
+  cudaMemcpy(devicePtr, ptr, (nr+1) * sizeof(int), cudaMemcpyHostToDevice);
 
   float* deviceData;
   cudaMalloc(&deviceData, n * sizeof(float));
   cudaMemcpy(deviceData, data, n * sizeof(float), cudaMemcpyHostToDevice);
 
-  float* deviceIndices;
-  cudaMalloc(&deviceIndices, n * sizeof(float));
-  cudaMemcpy(deviceIndices, data, n * sizeof(float), cudaMemcpyHostToDevice);
+  int* deviceIndices;
+  cudaMalloc(&deviceIndices, n * sizeof(int));
+  cudaMemcpy(deviceIndices, indices, n * sizeof(int), cudaMemcpyHostToDevice);
 
-  dim3 threadsPerBlock(1,5,1);
-  dim3 numBlocks(1, 1, 1);
-  naiveSpMV<<<numBlocks, threadsPerBlock>>>(deviceT, deviceB, devicePtr, deviceData, deviceIndices);
+  dim3 threadsPerBlock(1,16,1);
+  dim3 numBlocks(1, 64, 1);
+  naiveSpMV<<<numBlocks, threadsPerBlock>>>(deviceT, deviceB, devicePtr, deviceData, deviceIndices, n);
 
-  newT = (float *) malloc(nr*sizeof(float));
-  cudaMemcpy(newT, deviceT, nr*sizeof(float));
+  float* newT = (float *) malloc(nr*sizeof(float));
+  cudaMemcpy(newT, deviceT, nr*sizeof(float), cudaMemcpyDeviceToHost);
+
+  // MAIN COMPUTATION, SEQUENTIAL VERSION
+  for (i=0; i<nr; i++) {                                                      
+    for (j = ptr[i]; j<ptr[i+1]; j++) {
+      t[i] = t[i] + data[j] * b[indices[j]];
+    }
+  }
+
 
   for (int i = 0; i < nr; i++) {
-      cout << newT[i] - t[i] << endl;
+      printf("%f, %f, %f\n", newT[i], t[i], newT[i] - t[i]);
   }
+  printf("%d\n", nr);
 
   cudaFree(deviceT);
   cudaFree(deviceIndices);
-  cudaFree(devicePrt);
+  cudaFree(devicePtr);
   cudaFree(deviceData);
   cudaFree(deviceB);
 
