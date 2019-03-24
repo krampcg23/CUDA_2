@@ -127,13 +127,19 @@ main (int argc, char **argv) {
   for (int i = 0; i < nr; i++) {
       assert(abs(newT[i] - t[i] < 0.0001));
   }
-  printf("%d\n", nr);
-
   cudaFree(deviceT);
   cudaFree(deviceIndices);
   cudaFree(devicePtr);
   cudaFree(deviceData);
   cudaFree(deviceB);
+  free(newT);
+  free(indices);
+  free(ptr);
+  free(data);
+  free(t);
+  free(b);
+
+  printf("Completed and output matches sequential version\n");
 
 
 }
