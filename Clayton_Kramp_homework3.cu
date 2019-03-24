@@ -163,11 +163,11 @@ main (int argc, char **argv) {
   dim3 threadsPerBlock(16,1,1);
   dim3 numBlocks(nr, 1, 1);
 
-  cudaEventRecord(start, 0);
+  cudaEventRecord(start);
 
   loadBalancedSpMV<<<numBlocks, threadsPerBlock, nc+THREADS_PER_LINE>>>(deviceT, deviceB, devicePtr, deviceData, deviceIndices);
 
-  cudaEventRecord(stop, 0);
+  cudaEventRecord(stop);
   cudaEventSynchronize(stop);
   cudaEventElapsedTime(&time, start, stop);
 
