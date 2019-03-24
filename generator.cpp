@@ -7,7 +7,7 @@ int main() {
     ofstream file;
     file.open("sm3.txt");
     vector<vector<int> > v;
-    int c = 2001;
+    int c = 20001;
     int r = 4003;
     int sum = 0;
     for (int i = 0; i < r; i++) {

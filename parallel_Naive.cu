@@ -3,6 +3,7 @@
 */
 
 #include <stdio.h>
+#include <assert.h>
 using namespace std;
 
 __global__ void naiveSpMV(float* t, float* b, int* ptr, float* data, int* ind, int n) {
@@ -25,6 +26,13 @@ __global__ void naiveSpMV(float* t, float* b, int* ptr, float* data, int* ind, i
 }
 
 main (int argc, char **argv) {
+
+  float time;
+  cudaEvent_t start, stop;
+
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
   FILE *fp;
   char line[1024]; 
   int *ptr, *indices;
@@ -101,7 +109,16 @@ main (int argc, char **argv) {
 
   dim3 threadsPerBlock(1,16,1);
   dim3 numBlocks(1, 64, 1);
+  cudaEventRecord(start, 0);
   naiveSpMV<<<numBlocks, threadsPerBlock>>>(deviceT, deviceB, devicePtr, deviceData, deviceIndices, n);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&time, start, stop);
+
+  printf("Time to generate:  %3.5f ms \n", time);
+
+
 
   float* newT = (float *) malloc(nr*sizeof(float));
   cudaMemcpy(newT, deviceT, nr*sizeof(float), cudaMemcpyDeviceToHost);
@@ -115,9 +132,10 @@ main (int argc, char **argv) {
 
 
   for (int i = 0; i < nr; i++) {
-      printf("%f, %f, %f\n", newT[i], t[i], newT[i] - t[i]);
+      //printf("%f, %f, %f\n", newT[i], t[i], newT[i] - t[i]);
+      assert(abs(newT[i] - t[i]) < 0.001);
   }
-  printf("%d\n", nr);
+ // printf("%d\n", nr);
 
   cudaFree(deviceT);
   cudaFree(deviceIndices);

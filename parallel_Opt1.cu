@@ -36,6 +36,13 @@ __global__ void loadBalancedSpMV(float* t, float* b, int* ptr, float* data, int*
 }
 
 main (int argc, char **argv) {
+  float time;
+  cudaEvent_t start, stop;
+
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+
   FILE *fp;
   char line[1024]; 
   int *ptr, *indices;
@@ -112,7 +119,17 @@ main (int argc, char **argv) {
 
   dim3 threadsPerBlock(16,1,1);
   dim3 numBlocks(nr, 1, 1);
+
+  cudaEventRecord(start, 0);
+
   loadBalancedSpMV<<<numBlocks, threadsPerBlock, nc+THREADS_PER_LINE>>>(deviceT, deviceB, devicePtr, deviceData, deviceIndices, n);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&time, start, stop);
+
+  printf("Time to generate:  %3.5f ms \n", time);
+
 
   float* newT = (float *) malloc(nr*sizeof(float));
   cudaMemcpy(newT, deviceT, nr*sizeof(float), cudaMemcpyDeviceToHost);
